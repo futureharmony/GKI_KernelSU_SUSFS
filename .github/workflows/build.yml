@@ -556,11 +556,17 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p kabi-out
-          for name in Module.symvers System.map; do
-            found=$(find "${{ github.workspace }}/kernel" -name "$name" -type f 2>/dev/null | head -n 1 || true)
-            if [ -n "$found" ]; then cp "$found" "kabi-out/$name"; fi
+          # 把**每一个**候选都带上（路径压平），并打印清单：上一次只 head -1 取了一个，
+          # 事后无法判断拿到的到底是不是 dist 产物。
+          find "${{ github.workspace }}/kernel" -name Module.symvers -type f 2>/dev/null | while read -r f; do
+            rel=$(printf '%s' "$f" | sed "s|${{ github.workspace }}/kernel/||; s|/|__|g")
+            cp "$f" "kabi-out/$rel"
           done
-          ls -l kabi-out || true
+          find "${{ github.workspace }}/kernel" -name System.map -type f 2>/dev/null | while read -r f; do
+            rel=$(printf '%s' "$f" | sed "s|${{ github.workspace }}/kernel/||; s|/|__|g")
+            cp "$f" "kabi-out/$rel"
+          done
+          echo "=== kabi-out ==="; ls -l kabi-out || true
 
       - name: Upload kABI files
         uses: actions/upload-artifact@v7
