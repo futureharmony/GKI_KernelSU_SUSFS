@@ -1004,7 +1004,7 @@ jobs:
           # 上游的 droidspaces 开关只给 USER_NS，use_networking 才给 IP6 NAT；
           # MACVLAN / CFS_BANDWIDTH / CGROUP_PIDS 三项全仓都没有（grep 实证 2026-11-14）。
           # MACVLAN 用 =y 内置：=m 会多出一个 macvlan.ko，得连同 system_dlkm 一起刷。
-          # [control] enable_config CONFIG_MACVLAN
+          enable_config CONFIG_MACVLAN
           # NAT66。只要这两项就别开 use_networking —— 那个开关会连带 BBRv3 / CAKE /
           # WireGuard / CIFS / IPSet 一大片，变量太多。
           # [control] enable_config_if_defined CONFIG_IP6_NF_NAT
