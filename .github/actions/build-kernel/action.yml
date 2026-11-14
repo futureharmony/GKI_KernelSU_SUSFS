@@ -95,8 +95,14 @@ runs:
           else
             BAZEL_TARGET=//common:kernel_aarch64/Image
           fi
+          # ★ 本 fork：用 LTO=thin，**不用** --config=fast。
+          # 实测（2026-11-14）：现役内核的 config 是 CONFIG_LTO_CLANG_THIN=y，
+          # 而 --config=fast 会把它变成 LTO_NONE ⇒ 与官方 abi_gki_aarch64.stg
+          # 漂移 3,166/8,893（面覆盖 v4l2/drm/snd/usb/regulator/phy/of/blk，
+          # 典型的基础类型/宏被 LTO 开关改写）。设备上 398 个厂商模块与 .stg 100%
+          # 一致，而现役内核就是 LTO=thin 编的 ⇒ 必须对齐。
           tools/bazel build \
-            --config=fast \
+            --lto=thin \
             "${PAGE_SIZE_FLAGS[@]}" \
             --disk_cache=/home/runner/.cache/bazel \
             "$BAZEL_TARGET"
