@@ -55,16 +55,13 @@ runs:
           cp ${{ github.workspace }}/Droidspaces-OSS/Documentation/resources/kernel-patches/GKI/kernel-6.12/001.GKI-6.12-or-above-fix_sysvipc_kabi.patch ./
           patch -p1 < 001.GKI-6.12-or-above-fix_sysvipc_kabi.patch
         elif [ "${{ inputs.version }}" == "android15-6.6" ]; then
-          # ★ 本 fork：6.6 上**不打** SYSVIPC 的 kABI padding 补丁。
-          # 该补丁把 struct task_struct 里原有的 sysvsem/sysvshm（include/linux/sched.h
-          # 约 1075 行）挪到 ANDROID_KABI_RESERVE(6/7/8)（约 1526 行）⇒ 同样开着
-          # CONFIG_SYSVIPC 的前提下，**字段位置变了**，task_struct 布局与厂商内核不同，
-          # 所有「以 task_struct* 为参数」的导出符号 CRC 全部改变。
-          # 实测（2026-11-14，run 43559560862）：打了补丁之后，连 Google 自己编的
-          # system_dlkm 模块都有 87/96 会因 CRC 不符被拒载；而在设备上把某个 .ko 的
-          # __versions 改一个字节，insmod 立刻失败 ⇒ 这颗内核**是**校验 CRC 的。
-          # 因此这里保持与现役内核一致：SYSVIPC=y + **不挪字段**。
-          echo "android15-6.6: skip the SYSVIPC kABI padding patch (keeps task_struct layout)" 
+          # ★ 这个补丁**必须打**（ABI gate 实测，2026-11-14）：
+          #   打 + SYSVIPC=y → 与官方 .stg 漂移 3,166；不打 → 5,788。
+          # 原因：补丁把 sysvsem/sysvshm 放进本就存在的 ANDROID_KABI_RESERVE(6/7/8)，
+          # 不打就是往 task_struct 中部插字段、后面全部后移。
+          cp ${{ github.workspace }}/Droidspaces-OSS/Documentation/resources/kernel-patches/GKI/below-kernel-6.12/001.GKI-below-6.12-fix_sysvipc_kabi_6_7_8.patch ./
+          patch -p1 < 001.GKI-below-6.12-fix_sysvipc_kabi_6_7_8.patch
+
         elif [ "${{ inputs.version }}" == "android14-6.1" ]; then
           #curl -L https://raw.githubusercontent.com/ravindu644/Droidspaces-OSS/main/Documentation/resources/kernel-patches/GKI/below-kernel-6.12/001.GKI-below-6.12-fix_sysvipc_kabi_1_2_3.patch
           #curl -L https://raw.githubusercontent.com/ravindu644/Droidspaces-OSS/main/Documentation/resources/kernel-patches/GKI/below-kernel-6.12/001.GKI-below-6.12-fix_sysvipc_kabi_3_4_5.patch
