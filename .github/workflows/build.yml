@@ -1014,7 +1014,6 @@ jobs:
           #   设备现有 vendor_dlkm/system_dlkm 的 __versions。判负信号 =
           #   开机 dmesg "disagrees about version of symbol"。
           enable_config CONFIG_CFS_BANDWIDTH
-          enable_config CONFIG_CGROUP_PIDS
 
           # 可选: 网络相关配置 (Docker/NAT 模式)
           enable_config_if_defined CONFIG_NETFILTER_XT_MATCH_ADDRTYPE
@@ -1050,6 +1049,14 @@ jobs:
             # 关闭安卓严格网络控制，否则容器内普通用户无法联网
             disable_config CONFIG_ANDROID_PARANOID_NETWORK
           fi
+
+      - name: CGROUP_PIDS 侧表（零 ABI 漂移，替代 CONFIG_CGROUP_PIDS）
+        if: inputs.droidspaces != 'off'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "KERNEL_ROOT=$KERNEL_ROOT"
+          python3 "${{ github.workspace }}/.github/scripts/kernel_cgroup_pids_side.py" "$KERNEL_ROOT"
 
       - name: 注入 NTSync 内核配置
         if: inputs.droidspaces != 'off' && inputs.droidspaces_ntsync
