@@ -1000,6 +1000,22 @@ jobs:
           # 不需要像 SYSVIPC/IPC_NS 那样额外打 padding 补丁。与 wild_kernel 保持一致，全版本启用。
           enable_config CONFIG_USER_NS
 
+          # ── 以下 5 行是 TB522FU 追加（上游 zzh20188/GKI_KernelSU_SUSFS 里没有）──────
+          # 上游的 droidspaces 开关只给 USER_NS，use_networking 才给 IP6 NAT；
+          # MACVLAN / CFS_BANDWIDTH / CGROUP_PIDS 三项全仓都没有（grep 实证 2026-11-14）。
+          # MACVLAN 用 =y 内置：=m 会多出一个 macvlan.ko，得连同 system_dlkm 一起刷。
+          enable_config CONFIG_MACVLAN
+          # NAT66。只要这两项就别开 use_networking —— 那个开关会连带 BBRv3 / CAKE /
+          # WireGuard / CIFS / IPSet 一大片，变量太多。
+          enable_config_if_defined CONFIG_IP6_NF_NAT
+          enable_config_if_defined CONFIG_IP6_NF_TARGET_MASQUERADE
+          # ★ 以下两项改调度器/cgroup 结构 ⇒ kABI 敏感（--cpus / --pids-limit 需要）。
+          #   开之前/开之后都用 scripts/kabi_crc_check.py 判：新内核 Module.symvers vs
+          #   设备现有 vendor_dlkm/system_dlkm 的 __versions。判负信号 =
+          #   开机 dmesg "disagrees about version of symbol"。
+          enable_config CONFIG_CFS_BANDWIDTH
+          enable_config CONFIG_CGROUP_PIDS
+
           # 可选: 网络相关配置 (Docker/NAT 模式)
           enable_config_if_defined CONFIG_NETFILTER_XT_MATCH_ADDRTYPE
           enable_config_if_defined CONFIG_NETFILTER_XT_TARGET_LOG
