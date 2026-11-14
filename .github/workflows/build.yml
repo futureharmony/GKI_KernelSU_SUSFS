@@ -524,6 +524,14 @@ jobs:
           version: ${{ inputs.version }}
           page_size: ${{ inputs.page_size }}
 
+      - name: Upload ABI artifacts (symvers/stg/config)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.extract.outputs.file_name }}-abi
+          path: abi-out/
+          if-no-files-found: warn
+
       # ★ fork 追加：拿**该树自带的官方 ABI 定义**（android/abi_gki_aarch64.stg）判漂移。
       # 起因：2026-11-14 实测设备上 398 个厂商模块的 __versions 与该 .stg **100% 一致**，
       # 而我们的构建漂移 3,166/8,893 ⇒ 刷上去内核起来但厂商模块被拒载（黑屏/无 WiFi）。
@@ -548,6 +556,13 @@ jobs:
           ls -l "$KROOT/bazel-bin/common/kernel_aarch64/Image" 2>/dev/null || true
           echo "ABI gate: stg=${STG:-<none>}"
           echo "ABI gate: ours=${OURS:-<none>}"
+          # 把这次构建真正用的 .config 也存下来（判漂移根因时唯一可靠的东西）
+          mkdir -p abi-out
+          CFG=$(find -L "$KROOT/bazel-bin" "$KROOT/common" -maxdepth 6 -name '.config' -type f -size +0 2>/dev/null | grep -v sandbox | head -n1)
+          [ -n "${CFG:-}" ] && cp "$CFG" abi-out/config-$(basename "$(dirname "$(dirname "$CFG")")").txt
+          [ -n "${OURS:-}" ] && cp "$OURS" abi-out/Module.symvers
+          [ -n "${STG:-}" ] && cp "$STG" abi-out/abi.stg
+          ls -l abi-out || true
           if [ -z "${STG:-}" ] || [ -z "${OURS:-}" ]; then
             echo "::warning title=ABI gate::missing stg or symvers - ABI unverified"
             exit 0
