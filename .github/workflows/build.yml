@@ -1013,7 +1013,7 @@ jobs:
           #   开之前/开之后都用 scripts/kabi_crc_check.py 判：新内核 Module.symvers vs
           #   设备现有 vendor_dlkm/system_dlkm 的 __versions。判负信号 =
           #   开机 dmesg "disagrees about version of symbol"。
-          # [control] enable_config CONFIG_CFS_BANDWIDTH
+          enable_config CONFIG_CFS_BANDWIDTH
 
           # 可选: 网络相关配置 (Docker/NAT 模式)
           enable_config_if_defined CONFIG_NETFILTER_XT_MATCH_ADDRTYPE
