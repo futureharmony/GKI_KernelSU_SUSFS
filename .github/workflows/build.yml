@@ -559,8 +559,15 @@ jobs:
           echo "ABI gate: ours=${OURS:-<none>}"
           # 把这次构建真正用的 .config 也存下来（判漂移根因时唯一可靠的东西）
           mkdir -p abi-out
-          CFG=$(find -L "$KROOT/bazel-bin" "$KROOT/common" -maxdepth 6 -name '.config' -type f -size +0 2>/dev/null | grep -v sandbox | head -n1)
-          [ -n "${CFG:-}" ] && cp "$CFG" abi-out/config-$(basename "$(dirname "$(dirname "$CFG")")").txt
+          # 构建**真正**用的 .config：build-kernel 动作自己就是这么读的
+          for CFG in "$KROOT/bazel-bin/common/kernel_aarch64_config/out_dir/.config" \
+                     "$KROOT/out/android15-6.6/dist/.config"; do
+            if [ -f "$CFG" ]; then cp "$CFG" abi-out/build.config; echo "ABI gate: config=$CFG"; break; fi
+          done
+          if [ ! -f abi-out/build.config ]; then
+            CFG=$(find -L "$KROOT/bazel-bin" -name '.config' -type f -size +0 2>/dev/null | grep -v sandbox | head -n1)
+            [ -n "${CFG:-}" ] && cp "$CFG" abi-out/build.config && echo "ABI gate: config(fallback)=$CFG"
+          fi
           [ -n "${OURS:-}" ] && cp "$OURS" abi-out/Module.symvers
           [ -n "${STG:-}" ] && cp "$STG" abi-out/abi.stg
           ls -l abi-out || true
