@@ -535,8 +535,17 @@ jobs:
           set +e
           KROOT="${{ github.workspace }}/kernel"
           STG=$(find -L "$KROOT" -maxdepth 6 -name 'abi_gki_aarch64.stg' -type f -size +0 2>/dev/null | head -n1)
-          OURS=$(find -L "$KROOT" -name 'Module.symvers' -type f -size +0 -print0 2>/dev/null \
-                 | xargs -0 ls -t 2>/dev/null | head -n1)
+          # ★ 只认 bazel-bin 便捷符号链接下、与 Image 同目录的那份。
+          # 上一版用 find|ls -t，抓到的是 sandbox_stash/KernelBuildKmiSymbolListStrictMode/…
+          # 里的副本（那是另一条动作的沙箱，不是我们构建的产物）⇒ 同一份代码报出
+          # DRIFT=5796 与 3166 两个数，判据自相矛盾。
+          OURS="$KROOT/bazel-bin/common/kernel_aarch64/Module.symvers"
+          [ -f "$OURS" ] || OURS="$KROOT/bazel-bin/common/kernel_aarch64/dist/Module.symvers"
+          if [ ! -f "$OURS" ]; then
+            OURS=$(find -L "$KROOT/bazel-bin" -name 'Module.symvers' -type f -size +0 2>/dev/null \
+                   | grep -v sandbox | head -n1)
+          fi
+          ls -l "$KROOT/bazel-bin/common/kernel_aarch64/Image" 2>/dev/null || true
           echo "ABI gate: stg=${STG:-<none>}"
           echo "ABI gate: ours=${OURS:-<none>}"
           if [ -z "${STG:-}" ] || [ -z "${OURS:-}" ]; then
