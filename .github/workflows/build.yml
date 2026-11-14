@@ -410,7 +410,7 @@ jobs:
       # 约 3,202 个导出原型的 CRC；这里用 struct cgroup* 键的侧表 + can_fork 计数绕开。
       - name: CGROUP_PIDS as cgroup core files (zero ABI drift)
         # 不再挂在 DS 上：只要这一版要跑这个脚本就跑（use_ds=false 时也要）
-        if: always()
+        if: contains(inputs.feature_set, 'DS')
         shell: bash
         run: |
           set -euo pipefail
