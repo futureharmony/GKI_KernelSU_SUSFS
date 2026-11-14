@@ -1007,8 +1007,8 @@ jobs:
           # [control] enable_config CONFIG_MACVLAN
           # NAT66。只要这两项就别开 use_networking —— 那个开关会连带 BBRv3 / CAKE /
           # WireGuard / CIFS / IPSet 一大片，变量太多。
-          # [control] enable_config_if_defined CONFIG_IP6_NF_NAT
-          # [control] enable_config_if_defined CONFIG_IP6_NF_TARGET_MASQUERADE
+          enable_config_if_defined CONFIG_IP6_NF_NAT
+          enable_config_if_defined CONFIG_IP6_NF_TARGET_MASQUERADE
           # ★ 以下两项改调度器/cgroup 结构 ⇒ kABI 敏感（--cpus / --pids-limit 需要）。
           #   开之前/开之后都用 scripts/kabi_crc_check.py 判：新内核 Module.symvers vs
           #   设备现有 vendor_dlkm/system_dlkm 的 __versions。判负信号 =
