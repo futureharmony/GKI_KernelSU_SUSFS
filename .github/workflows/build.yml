@@ -409,7 +409,8 @@ jobs:
       # 真 pids 控制器要给 enum cgroup_subsys_id 加枚举 ⇒ genksyms 会把枚举集合折进
       # 约 3,202 个导出原型的 CRC；这里用 struct cgroup* 键的侧表 + can_fork 计数绕开。
       - name: CGROUP_PIDS as cgroup core files (zero ABI drift)
-        if: contains(inputs.feature_set, 'DS') || inputs.feature_set == 'All'
+        # 不再挂在 DS 上：只要这一版要跑这个脚本就跑（use_ds=false 时也要）
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
