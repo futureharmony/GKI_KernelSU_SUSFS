@@ -405,6 +405,17 @@ jobs:
           os_patch_level: ${{ inputs.os_patch_level }}
           droidspaces_commit: ${{ inputs.droidspaces_commit }}
 
+      # ★ fork 追加：pids.max / pids.current 走 cgroup core 文件（0 ABI 漂移）。
+      # 真 pids 控制器要给 enum cgroup_subsys_id 加枚举 ⇒ genksyms 会把枚举集合折进
+      # 约 3,202 个导出原型的 CRC；这里用 struct cgroup* 键的侧表 + can_fork 计数绕开。
+      - name: CGROUP_PIDS as cgroup core files (zero ABI drift)
+        if: contains(inputs.feature_set, 'DS') || inputs.feature_set == 'All'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "${{ github.workspace }}/.github/scripts/kernel_cgroup_pids_side.py" \
+            "${{ github.workspace }}/kernel"
+
       - name: Apply NTSync Patches
         if: contains(inputs.feature_set, 'NTSync')
         uses: ./.github/actions/ntsync
@@ -538,6 +549,25 @@ jobs:
           path: ${{ github.workspace }}/AnyKernel3/**
           if-no-files-found: ignore
           compression-level: 9
+
+      # ★ fork 追加：kABI 判定要 Module.symvers（上游只发 AnyKernel3 + BuildInfo）
+      - name: Collect Module.symvers / System.map
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p kabi-out
+          for name in Module.symvers System.map; do
+            found=$(find "${{ github.workspace }}/kernel" -name "$name" -type f 2>/dev/null | head -n 1 || true)
+            if [ -n "$found" ]; then cp "$found" "kabi-out/$name"; fi
+          done
+          ls -l kabi-out || true
+
+      - name: Upload kABI files
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.extract.outputs.file_name }}-kABI
+          path: kabi-out/
+          if-no-files-found: warn
 
       - name: Write Build-verified only artifact metadata
         if: success() && inputs.root_flavor != '' && inputs.root_flavor != 'none'
