@@ -72,6 +72,20 @@ runs:
               echo "WARNING: no head or tag found for ${FORMATTED_BRANCH}; sync will likely fail." >&2
             fi
           fi
+          # ★ 本 fork：允许用 config/kernel-pin.txt 把 common 钉到某个 tag。
+          # 起因（2026-11-14）：默认取 <branch>_r* 里最大的 rN（r29），而设备现役内核的
+          # vermagic g076ac12bde16 = r18 —— 源码不同是 ABI 漂移 3,17x 的最大嫌疑。
+          # 钉住 r18 后「源码」这个变量就被消掉了。
+          PIN_FILE="${GITHUB_WORKSPACE}/config/kernel-pin.txt"
+          if [ -f "$PIN_FILE" ]; then
+            PIN_TAG="$(tr -d '[:space:]' < "$PIN_FILE")"
+            if [ -n "$PIN_TAG" ]; then
+              echo "[*] Pinning kernel/common to refs/tags/${PIN_TAG} (config/kernel-pin.txt)"
+              sed -i "/path=\"common\"/ s|revision=\"[^\"]*\"|revision=\"refs/tags/${PIN_TAG}\"|" "$DEFAULT_MANIFEST_PATH"
+              grep -n 'path="common"' "$DEFAULT_MANIFEST_PATH" | head -2 || true
+              TAG_FALLBACK="$PIN_TAG"
+            fi
+          fi
           echo "tag_fallback=$TAG_FALLBACK" >> $GITHUB_OUTPUT
         }
 
