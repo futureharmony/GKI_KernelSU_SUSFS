@@ -1065,16 +1065,8 @@ jobs:
           cp -a "$SRC"/walt/. kernel/sched/walt/
           cp -a "$SRC"/lenovohypersched/. kernel/sched/lenovohypersched/
           cp -a "$SRC"/include/linux/sched/walt.h include/linux/sched/walt.h
-          grep -q 'obj-$(CONFIG_SCHED_WALT) += walt/' kernel/sched/Makefile || cat >> kernel/sched/Makefile <<'EOF'
-
-obj-$(CONFIG_SCHED_WALT) += walt/
-obj-$(CONFIG_LENOVO_HYPERSCHED) += lenovohypersched/
-EOF
-          grep -q 'kernel/sched/walt/Kconfig' Kconfig || cat >> Kconfig <<'EOF'
-
-source "kernel/sched/walt/Kconfig"
-source "kernel/sched/lenovohypersched/Kconfig"
-EOF
+          grep -q 'obj-$(CONFIG_SCHED_WALT) += walt/' kernel/sched/Makefile || printf '\nobj-$(CONFIG_SCHED_WALT) += walt/\nobj-$(CONFIG_LENOVO_HYPERSCHED) += lenovohypersched/\n' >> kernel/sched/Makefile
+          grep -q 'kernel/sched/walt/Kconfig' Kconfig || printf '\nsource "kernel/sched/walt/Kconfig"\nsource "kernel/sched/lenovohypersched/Kconfig"\n' >> Kconfig
           for c in CONFIG_SCHED_WALT CONFIG_LENOVO_HYPERSCHED; do
             if grep -q "^# ${c} is not set" "$DEFCONFIG"; then
               sed -i "s|^# ${c} is not set$|${c}=y|" "$DEFCONFIG"
