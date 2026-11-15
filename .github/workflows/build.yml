@@ -1053,6 +1053,38 @@ jobs:
             disable_config CONFIG_ANDROID_PARANOID_NETWORK
           fi
 
+      - name: WALT + Lenovo hypersched 编进内核（CFS_BANDWIDTH 兼容的唯一路径）
+        if: inputs.android_version == 'android15' && inputs.kernel_version == '6.6'
+        shell: bash
+        working-directory: ${{ env.KERNEL_ROOT }}/common
+        run: |
+          set -euo pipefail
+          SRC="${{ github.workspace }}/config/walt-src"
+          test -d "$SRC/walt" || { echo "::error::缺 config/walt-src"; exit 1; }
+          mkdir -p kernel/sched/walt kernel/sched/lenovohypersched include/linux/sched
+          cp -a "$SRC"/walt/. kernel/sched/walt/
+          cp -a "$SRC"/lenovohypersched/. kernel/sched/lenovohypersched/
+          cp -a "$SRC"/include/linux/sched/walt.h include/linux/sched/walt.h
+          grep -q 'obj-$(CONFIG_SCHED_WALT) += walt/' kernel/sched/Makefile || cat >> kernel/sched/Makefile <<'EOF'
+
+obj-$(CONFIG_SCHED_WALT) += walt/
+obj-$(CONFIG_LENOVO_HYPERSCHED) += lenovohypersched/
+EOF
+          grep -q 'kernel/sched/walt/Kconfig' Kconfig || cat >> Kconfig <<'EOF'
+
+source "kernel/sched/walt/Kconfig"
+source "kernel/sched/lenovohypersched/Kconfig"
+EOF
+          for c in CONFIG_SCHED_WALT CONFIG_LENOVO_HYPERSCHED; do
+            if grep -q "^# ${c} is not set" "$DEFCONFIG"; then
+              sed -i "s|^# ${c} is not set$|${c}=y|" "$DEFCONFIG"
+            elif ! grep -q "^${c}=y" "$DEFCONFIG"; then
+              echo "${c}=y" >> "$DEFCONFIG"
+            fi
+          done
+          echo "WALT 源文件: $(ls kernel/sched/walt | wc -l)；hypersched: $(ls kernel/sched/lenovohypersched | wc -l)"
+          grep -n "SCHED_WALT\|LENOVO_HYPERSCHED" kernel/sched/Makefile Kconfig "$DEFCONFIG" | head -10
+
       - name: CGROUP_PIDS 侧表（零 ABI 漂移，替代 CONFIG_CGROUP_PIDS）
         if: inputs.droidspaces != 'off'
         shell: bash
