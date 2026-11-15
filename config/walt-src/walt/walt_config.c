@@ -5,7 +5,7 @@
 
 #include "walt.h"
 #include "trace.h"
-#include <soc/qcom/socinfo.h>
+/* [port] 原 #include <soc/qcom/socinfo.h>：GKI 树无 include/soc/qcom/，本机 SoC = sun */
 
 unsigned long __read_mostly soc_flags;
 unsigned int trailblazer_floor_freq[MAX_CLUSTERS];
@@ -21,7 +21,7 @@ int soc_sched_lib_name_capacity;
 void walt_config(void)
 {
 	int i, j, cpu;
-	const char *name = socinfo_get_id_string();
+	const char *name = "SUN"; /* [port] socinfo_get_id_string() 不在 GKI；TB522FU = SM8750 = sun */
 
 	sysctl_sched_group_upmigrate_pct = 100;
 	sysctl_sched_group_downmigrate_pct = 95;
