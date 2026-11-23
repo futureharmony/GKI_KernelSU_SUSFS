@@ -539,12 +539,12 @@ void init_lenovo_rq_data(void *rq_data)
 	raw_spin_lock_init(&lrq->hyper_ux_runtime_lock);
 }
 
-static void probe_android_rvh_enqueue_task_fair(void *unused, struct rq *rq, struct task_struct *p, int flags)
+static void __maybe_unused probe_android_rvh_enqueue_task_fair(void *unused, struct rq *rq, struct task_struct *p, int flags)
 {
 	enqueue_hyper_thread(rq, p);
 }
 
-static void probe_android_rvh_dequeue_task_fair(void *unused, struct rq *rq, struct task_struct *p, int flags)
+static void __maybe_unused probe_android_rvh_dequeue_task_fair(void *unused, struct rq *rq, struct task_struct *p, int flags)
 {
 	dequeue_hyper_thread(rq, p);
 }
@@ -553,77 +553,22 @@ static void probe_android_rvh_dequeue_task_fair(void *unused, struct rq *rq, str
 static int __init init_lenovo_hypersched(void)
 {
 	static int already_inited;
-	int cpu;
-	struct task_struct *g, *t;
-	int ret;
 
 	if (cmpxchg(&already_inited, 0, 1) != 0)
 		return 0;
 
-	init_lenovo_rq_bandwidth(&def_ux_bandwidth, 1000000000ULL, 200000000ULL);
-
-	for_each_possible_cpu(cpu) {
-		struct rq *rq = cpu_rq(cpu);
-		if (!rq) {
-			printk("failed to init lenovo rq(%d)", cpu);
-			continue;
-		}
-		init_lenovo_rq_data(LENOVO_RQ(rq));
-	}
-
-	printk("init all already exists thread\n");
-	read_lock(&tasklist_lock);
-	for_each_process_thread(g, t) {
-		init_lenovo_task_struct(t);
-	}
-	for_each_possible_cpu(cpu) {
-		struct rq *rq = cpu_rq(cpu);
-		init_lenovo_task_struct(rq->idle);
-	}
-	read_unlock(&tasklist_lock);
-
-	ret = lenovo_hypernode_proc_init();
-	if (ret) {
-		/* stock: log, then report hook failure without registering any hook */
-		printk(KERN_ERR "create hyperschedule proc node failed\n");
-		goto fail_hooks;
-	}
-
-	if (register_trace_android_vh_dup_task_struct(probe_android_vh_dup_task_struct, NULL))
-		goto fail_hooks;
-	if (register_trace_android_rvh_enqueue_task_fair(probe_android_rvh_enqueue_task_fair, NULL))
-		goto fail_hooks;
-	if (register_trace_android_rvh_dequeue_task_fair(probe_android_rvh_dequeue_task_fair, NULL))
-		goto fail_hooks;
-	if (register_trace_android_vh_mutex_wait_start(probe_android_vh_mutex_wait_start, NULL))
-		goto fail_hooks;
-	if (register_trace_android_vh_alter_mutex_list_add(probe_android_vh_alter_mutex_list_add, NULL))
-		goto fail_hooks;
-	if (register_trace_android_vh_mutex_unlock_slowpath(probe_android_vh_mutex_unlock_slowpath, NULL))
-		goto fail_hooks;
-	if (register_trace_android_vh_alter_rwsem_list_add(probe_android_vh_alter_rwsem_list_add, NULL))
-		goto fail_hooks;
-	if (register_trace_android_vh_rwsem_wake(probe_android_vh_rwsem_wake, NULL))
-		goto fail_hooks;
-	if (register_trace_android_vh_rwsem_wake_finish(probe_android_vh_rwsem_wake_finish, NULL))
-		goto fail_hooks;
-	if (register_trace_android_vh_free_task(probe_android_vh_free_task, NULL))
-		goto fail_hooks;
-	if (register_trace_android_rvh_wake_up_new_task(probe_android_rvh_wake_up_new_task, NULL))
-		goto fail_hooks;
-	if (register_trace_android_rvh_try_to_wake_up(probe_android_rvh_try_to_wake_up, NULL))
-		goto fail_hooks;
-	if (register_trace_sched_stat_runtime(probe_android_vh_sched_stat_runtime, NULL))
-		goto fail_hooks;
-
-	register_lenovo_extra_vendor_hook();
-
+	/*
+	 * TB522FU (2026-11-23 v2): symbol-only shim.
+	 *
+	 * WALT 是内建的，walt.c 引用我们导出的 hyper_module_modprobe_finish，
+	 * 所以这个目录必须继续编进 Image（否则 ld.lld undefined symbol）。
+	 * 但**不能**在这里注册 vendor hook 或遍历任务初始化：vendor_boot ramdisk
+	 * 里的 lenovohyperSched.ko 也注册了同一组 hook，双开会每 fork 双重 init
+	 * （一次成功分配 lsa/lda、一次 -EINVAL 假失败 + 2080 B lsa 泄漏）。
+	 * 让 .ko 成为唯一的 hypersched 实例，这里只提供链接期需要的导出符号。
+	 */
 	hyper_module_modprobe_finish = true;
-	printk(KERN_ERR "register lenovo tubro schedule hooks succ\n");
-	return 0;
-
-fail_hooks:
-	printk(KERN_ERR "register lenovo tubro schedule hooks failed\n");
+	pr_info("lenovohypersched: built-in symbol shim only (vendor .ko owns hooks)\n");
 	return 0;
 }
 module_init(init_lenovo_hypersched);
