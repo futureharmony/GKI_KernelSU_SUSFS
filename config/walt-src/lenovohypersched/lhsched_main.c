@@ -539,12 +539,14 @@ void init_lenovo_rq_data(void *rq_data)
 	raw_spin_lock_init(&lrq->hyper_ux_runtime_lock);
 }
 
-static void probe_android_rvh_enqueue_task_fair(void *unused, struct rq *rq, struct task_struct *p, int flags)
+/* shim 形态下不再注册这两个 hook；保留定义并标 __maybe_unused，
+ * 免得 CONFIG_WERROR=y 因 -Wunused-function 构建失败（未来恢复注册仍可直接用）。 */
+static void __maybe_unused probe_android_rvh_enqueue_task_fair(void *unused, struct rq *rq, struct task_struct *p, int flags)
 {
 	enqueue_hyper_thread(rq, p);
 }
 
-static void probe_android_rvh_dequeue_task_fair(void *unused, struct rq *rq, struct task_struct *p, int flags)
+static void __maybe_unused probe_android_rvh_dequeue_task_fair(void *unused, struct rq *rq, struct task_struct *p, int flags)
 {
 	dequeue_hyper_thread(rq, p);
 }
