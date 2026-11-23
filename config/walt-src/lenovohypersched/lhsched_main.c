@@ -84,6 +84,26 @@ noinline void init_lenovo_task_struct(struct task_struct *p)
 	if (!p || !lt)
 		return;
 
+	/*
+	 * TB522FU fix (2026-11-23): a task created by dup_task_struct() starts
+	 * with a verbatim copy of the parent's task_struct, including
+	 * android_oem_data1[0], so lt->lsa and lt->lda already point at the
+	 * *parent's* objects. Keep them out of the child:
+	 *   - init_lenovo_dynamic_task_struct() returns -EINVAL when lt->lda is
+	 *     non-NULL, so without this the child keeps sharing the parent's
+	 *     lenovo_dynamic_attribute (and logs one bogus "malloc dynamic
+	 *     hyper mem failed" line per fork, observed once per fork on the
+	 *     live device);
+	 *   - probe_android_vh_free_task() kfree()s lt->lda when the child
+	 *     exits, which then frees the *parent's* attribute while the
+	 *     parent still uses it => use-after-free in the scheduler hooks.
+	 * Same for lsa: it is re-allocated below, so drop the inherited copy
+	 * and the stale list link as well.
+	 */
+	lt->lsa = NULL;
+	lt->lda = NULL;
+	INIT_LIST_HEAD(&lt->hyper_entry);
+
 	lsa = kmalloc(sizeof(struct lenovo_static_attribute), GFP_ATOMIC);
 	lt->lsa = lsa;
 	if (!lsa) {
@@ -92,7 +112,6 @@ noinline void init_lenovo_task_struct(struct task_struct *p)
 		lsa->static_hyper_ux = 0;
 		lsa->hyper_ux_depth = 0;
 		atomic64_set(&lsa->dynamic_hyper_ux, 0);
-		INIT_LIST_HEAD(&lt->hyper_entry);
 		lsa->enqueue_time = 0;
 		lsa->dynamic_hyper_ux_start = 0;
 	}
