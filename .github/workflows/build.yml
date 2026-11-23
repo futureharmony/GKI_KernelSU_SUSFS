@@ -1098,6 +1098,9 @@ jobs:
           cp -a "$SRC"/walt/. kernel/sched/walt/
           cp -a "$SRC"/lenovohypersched/. kernel/sched/lenovohypersched/
           cp -a "$SRC"/include/linux/sched/walt.h include/linux/sched/walt.h
+          # 双保险：`select LENOVO_HYPERSCHED` 会把 hypersched 强制编进 Image，与 vendor .ko 双重注册 hook。
+          sed -i '/select LENOVO_HYPERSCHED/d' kernel/sched/walt/Kconfig
+          grep -q '^# CONFIG_LENOVO_HYPERSCHED is not set' "$DEFCONFIG" || echo '# CONFIG_LENOVO_HYPERSCHED is not set' >> "$DEFCONFIG"
           grep -q 'obj-$(CONFIG_SCHED_WALT) += walt/' kernel/sched/Makefile || printf '\nobj-$(CONFIG_SCHED_WALT) += walt/\nobj-$(CONFIG_LENOVO_HYPERSCHED) += lenovohypersched/\n' >> kernel/sched/Makefile
           grep -q 'kernel/sched/walt/Kconfig' Kconfig || printf '\nsource "kernel/sched/walt/Kconfig"\nsource "kernel/sched/lenovohypersched/Kconfig"\n' >> Kconfig
           # TB522FU (2026-11-23 v2): 只把 WALT 编进 Image。lenovohypersched 不能内建 ——
