@@ -7,9 +7,7 @@ menu "QTI WALT based scheduler features"
 config SCHED_WALT
 	tristate "Support window based load tracking"
 	depends on SMP
-	# TB522FU (2026-11-23 v2): 不能 select LENOVO_HYPERSCHED —— 那会把 hypersched
-	# 强制编进 Image，与 vendor_boot 里的 lenovohyperSched.ko 双重注册 vendor hook
-	# （每 fork 双重 init + 2080 B lsa 泄漏）。WALT 内建本身是 6/6 的前提，不依赖它。
+	select LENOVO_HYPERSCHED
 	help
 	This feature will allow the scheduler to maintain a tunable window
 	based set of metrics for tasks and runqueues. These metrics can be
