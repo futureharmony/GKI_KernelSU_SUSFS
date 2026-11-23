@@ -1100,13 +1100,20 @@ jobs:
           cp -a "$SRC"/include/linux/sched/walt.h include/linux/sched/walt.h
           grep -q 'obj-$(CONFIG_SCHED_WALT) += walt/' kernel/sched/Makefile || printf '\nobj-$(CONFIG_SCHED_WALT) += walt/\nobj-$(CONFIG_LENOVO_HYPERSCHED) += lenovohypersched/\n' >> kernel/sched/Makefile
           grep -q 'kernel/sched/walt/Kconfig' Kconfig || printf '\nsource "kernel/sched/walt/Kconfig"\nsource "kernel/sched/lenovohypersched/Kconfig"\n' >> Kconfig
-          for c in CONFIG_SCHED_WALT CONFIG_LENOVO_HYPERSCHED; do
+          # TB522FU (2026-11-23 v2): 只把 WALT 编进 Image。lenovohypersched 不能内建 ——
+          # vendor_boot ramdisk 里的 lenovohyperSched.ko 也注册了同一组 vendor hook，
+          # 双开会每 fork 双重 init（假失败日志 + 2080B lsa 泄漏）。让 .ko 独享钩子。
+          for c in CONFIG_SCHED_WALT; do
             if grep -q "^# ${c} is not set" "$DEFCONFIG"; then
               sed -i "s|^# ${c} is not set$|${c}=y|" "$DEFCONFIG"
             elif ! grep -q "^${c}=y" "$DEFCONFIG"; then
               echo "${c}=y" >> "$DEFCONFIG"
             fi
           done
+          if grep -q '^CONFIG_LENOVO_HYPERSCHED=y' "$DEFCONFIG"; then
+            echo "::error::CONFIG_LENOVO_HYPERSCHED 必须保持 n（vendor .ko 独享钩子）"
+            exit 1
+          fi
           echo "WALT 源文件: $(ls kernel/sched/walt | wc -l)；hypersched: $(ls kernel/sched/lenovohypersched | wc -l)"
           grep -n "SCHED_WALT\|LENOVO_HYPERSCHED" kernel/sched/Makefile Kconfig "$DEFCONFIG" | head -10
 
