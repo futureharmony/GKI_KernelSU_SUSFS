@@ -582,6 +582,19 @@ jobs:
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "KSU 分支: $BRANCH"
 
+      # TB522FU (2026-11-23): 自定义 commit pin 的对象只在 GitHub 镜像里完整；
+      # CI 里 setup.sh 会去 git.zako.shirkneko.top 的私有镜像 clone，那边对旧提交
+      # 返回 "unable to read tree" ⇒ 先在这里从 GitHub clone 好，setup.sh 就不会再 clone。
+      - name: 预置 KernelSU 源码（GitHub 镜像）
+        if: inputs.ksu_mode != '禁用KSU' && inputs.ksu_variant == 'SukiSU'
+        working-directory: ${{ env.KERNEL_ROOT }}
+        run: |
+          set -euo pipefail
+          if [ ! -d KernelSU/.git ]; then
+            git clone --branch main https://github.com/SukiSU-Ultra/SukiSU-Ultra.git KernelSU
+          fi
+          git -C KernelSU log -1 --format='KernelSU clone HEAD: %h %ad %s' --date=short
+
       - name: 添加 KernelSU
         if: inputs.ksu_mode != '禁用KSU'
         working-directory: ${{ env.KERNEL_ROOT }}
@@ -630,6 +643,22 @@ jobs:
             echo "KSU_LATEST_COMMIT_DATE=未知" >> $GITHUB_ENV
           fi
 
+      # 把 KernelSU 钉到 config/config 里的 sukisu= commit，并把 HEAD 放回本地
+      # builtin 分支（版本串的 "@builtin" 部分来自 git rev-parse --abbrev-ref HEAD）。
+      - name: 固定 KernelSU 到自定义提交
+        if: inputs.ksu_mode != '禁用KSU' && inputs.ksu_variant == 'SukiSU'
+        working-directory: ${{ env.KERNEL_ROOT }}/KernelSU
+        run: |
+          set -euo pipefail
+          COMMIT=$(grep '^sukisu=' "$GITHUB_WORKSPACE/config/config" | cut -d'=' -f2- || true)
+          if [ -n "$COMMIT" ]; then
+            git checkout -B builtin "$COMMIT"
+          else
+            echo "config/config 未配置 sukisu=，保持 setup.sh 选中的提交"
+          fi
+          git log -1 --format='KernelSU pinned HEAD: %H %ad %s' --date=short
+          echo "KernelSU branch: $(git rev-parse --abbrev-ref HEAD)"
+
       - name: 配置 SukiSU 管理器信息
         if: (inputs.ksu_variant == 'SukiSU' || inputs.ksu_variant == 'SukiSU(40726)' || inputs.ksu_variant == 'SukiSU(40548)') && inputs.ksu_mode != '禁用KSU'
         working-directory: ${{ env.KERNEL_ROOT }}/KernelSU
@@ -644,6 +673,10 @@ jobs:
 
           GIT_HASH=$(git rev-parse --short=8 HEAD)
           BRANCH_NAME="${BRANCH#-s }"
+          # pin 是 40 位 sha 时版本串里的分支名会变成 sha；按约定写回 builtin
+          if [[ "$BRANCH_NAME" =~ ^[0-9a-f]{40}$ ]]; then
+            BRANCH_NAME="builtin"
+          fi
           if [ -z "$BRANCH_NAME" ] || [ "$BRANCH_NAME" = "$BRANCH" ]; then
             BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
           fi
